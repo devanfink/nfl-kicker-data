@@ -1,0 +1,42 @@
+library(tidyverse)
+library(rvest)
+library(xml2)
+
+get_kicking <- function(year){
+  URL <- paste0("http://www.pro-football-reference.com/years/",year,"/kicking.htm")
+  data <- read_html(URL) %>% rvest::html_nodes("table") %>% rvest::html_table(trim = T)
+  data <- as_tibble(data.frame(data[[1]]))
+  
+  cleaned <- data %>% 
+    rename(fga_0_19 = X0.19,
+           fgm_0_19 = X0.19.1,
+           fga_20_29 = X20.29,
+           fgm_20_29 = X20.29.1,
+           fga_30_39 = X30.39,
+           fgm_30_39 = X30.39.1,
+           fga_40_49 = X40.49,
+           fgm_40_49 = X40.49.1,
+           fga_50 = X50.,
+           fgm_50 = X50..1,
+           long = Scoring.2,
+           player = Var.2) %>% 
+    select(player, fgm_0_19, fga_0_19, fgm_20_29, fga_20_29, fgm_30_39, fga_30_39,
+           fgm_40_49, fga_40_49, fgm_50, fga_50, long) %>% slice(-1) %>% 
+    mutate(fgm_0_19 = suppressWarnings(as.numeric(fgm_0_19)), 
+           fga_0_19 = suppressWarnings(as.numeric(fga_0_19)),
+           fgm_20_29 = suppressWarnings(as.numeric(fgm_20_29)), 
+           fga_20_29 = suppressWarnings(as.numeric(fga_20_29)),
+           fgm_30_39 = suppressWarnings(as.numeric(fgm_30_39)), 
+           fga_30_39 = suppressWarnings(as.numeric(fga_30_39)),
+           fgm_40_49 = suppressWarnings(as.numeric(fgm_40_49)), 
+           fga_40_49 = suppressWarnings(as.numeric(fga_40_49)),
+           fgm_50 = suppressWarnings(as.numeric(fgm_50)), 
+           fga_50 = suppressWarnings(as.numeric(fga_50)), 
+           long = suppressWarnings(as.numeric(long))) %>% 
+    group_by(player) %>% 
+    mutate(fgm = sum(fgm_0_19, fgm_20_29, fgm_30_39, fgm_40_49, fgm_50, na.rm = TRUE),
+           fga = sum(fga_0_19, fga_20_29, fga_30_39, fga_40_49, fga_50, na.rm = TRUE),
+           fg_pct = fgm / fga * 100) %>% ungroup() %>% filter(fga >= 20) %>% 
+    mutate(player = str_remove_all(player, '[^A-Za-z0-9 ]+')) %>% mutate(year = year)
+  
+}
